@@ -1,5 +1,3 @@
-#@title Gaussian Negative Log Likelihood with Different Methods (PyTorch GPU Version)
-
 import torch
 import math
 import time
@@ -71,19 +69,19 @@ def negative_log_likelihood_full(x, mu, cov):
     return nll
 
 
-def negative_log_likelihood_svd(x, mu, Q, s):
+def negative_log_likelihood_svd(x, mu, cov):
     """
     Computes the negative log likelihood using an SVD-based formulation.
     
     Args:
-        x (torch.Tensor): Data sample.
+        x (torch.Tensor): Data sample (vector).
         mu (torch.Tensor): Mean vector.
-        Q (torch.Tensor): Orthogonal matrix from SVD of the covariance.
-        s (torch.Tensor): Vector of singular values.
-    
+        cov (torch.Tensor): Covariance matrix.
+        
     Returns:
         torch.Tensor: The computed negative log likelihood.
     """
+    U, s, Vh = torch.linalg.svd(cov)
     diff = x - mu
     n = diff.numel()
     logdet = torch.sum(torch.log(s))
@@ -121,7 +119,7 @@ def negative_log_likelihood_cholesky(x, mu, cov):
 
 # ----- Main computation -----
 
-image_size = 50
+image_size = 150
 sigma = 1.0  # You can adjust sigma as needed.
 cov = find_correlation_matrix(image_size, sigma, device)
 n = image_size ** 2  # Dimensionality
@@ -133,16 +131,10 @@ mu = torch.randn(n, device=device)
 # Compute negative log likelihood (NLL) using the full covariance method.
 nll_full = negative_log_likelihood_full(x, mu, cov)
 
-# Compute SVD of the covariance matrix.
-U, s, Vh = torch.linalg.svd(cov)
-nll_svd = negative_log_likelihood_svd(x, mu, U, s)
+nll_svd = negative_log_likelihood_svd(x, mu, cov)
 
-print("Negative log likelihood (full covariance):", nll_full.item())
-print("Negative log likelihood (SVD formulation):", nll_svd.item())
-print("Difference:", abs(nll_full.item() - nll_svd.item()))
-
-# Compute the NLL using the Cholesky approach.
 nll_chol = negative_log_likelihood_cholesky(x, mu, cov)
+
 print("Negative Log Likelihood (Cholesky):", nll_chol.item())
 
 print("\nReprinting for clarity:")
@@ -155,6 +147,12 @@ print("Difference (Full - Chol):", abs(nll_full.item() - nll_chol.item()))
 # ----- Timing Comparisons -----
 
 num_iter = 100
+
+# Warm-up (to ensure GPU kernels are loaded)
+_ = negative_log_likelihood_full(x, mu, cov)
+_ = negative_log_likelihood_svd(x, mu, cov)
+_ = negative_log_likelihood_cholesky(x, mu, cov)
+torch.cuda.synchronize() if device.type == "cuda" else None
 
 # Time the full covariance method.
 start_full = time.perf_counter()
