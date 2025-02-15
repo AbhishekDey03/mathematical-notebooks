@@ -86,7 +86,7 @@ def negative_log_likelihood_svd(x, mu, cov):
     n = diff.numel()
     logdet = torch.sum(torch.log(s))
     # Transform the difference vector into the SVD basis.
-    z = Q.T @ diff
+    z = U.T @ diff
     quad_term = torch.sum((z**2) / s)
     const_term = n * torch.log(torch.tensor(2 * math.pi, device=diff.device, dtype=diff.dtype))
     nll = 0.5 * (logdet + quad_term + const_term)
